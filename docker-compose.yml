@@ -27,6 +27,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_PORT=11434
+      - OLLAMA_KEEP_ALIVE=1h
     healthcheck:
       test: ["CMD", "ollama", "--version"]
       interval: 30s
