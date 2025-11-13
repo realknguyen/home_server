@@ -1,0 +1,50 @@
+%YAML 1.1
+---
+name: Local Config
+version: 1.0.0
+schema: v1
+model_defaults: &model_defaults
+  provider: ollama
+  apiBase: http://falconnet.local:11434/
+
+models:
+  - name: Autodetect
+    <<: *model_defaults
+    model: AUTODETECT
+    roles:
+      - chat
+      - edit
+      - apply
+      - embed
+      - rerank
+      - embed
+
+  - name: autocomplete
+    <<: *model_defaults
+    model: AUTODETECT # qwen3 is a thinking-switchable model
+    roles:
+      - autocomplete
+    autocompleteOptions:
+      disable: false
+      maxPromptTokens: 2048
+      debounceDelay: 250
+      modelTimeout: 150
+      maxSuffixPercentage: 0.2
+      prefixPercentage: 0.3
+      onlyMyCode: true
+    requestOptions:
+      extraBodyProperties:
+        think: false 
+    defaultCompletionOptions:
+      reasoning: false
+
+mcpServers:
+  - uses: upstash/context7-mcp
+context:
+  - uses: continuedev/diff-context
+  - uses: continuedev/codebase-context
+  - uses: continuedev/url-context
+  - uses: continuedev/folder-context
+  - uses: continuedev/terminal-context
+  - uses: continuedev/code-context
+  - uses: continuedev/file-context
