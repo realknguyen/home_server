@@ -1,0 +1,60 @@
+/* Layout for the shutdown/restart widget */
+.power-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+  margin: 0.75rem 0;
+}
+
+.power-controls__form {
+  margin: 0;
+}
+
+.power-controls__button {
+  width: 5rem;
+  height: 5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.power-controls__button:hover,
+.power-controls__button:focus-visible {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.power-controls__button:active {
+  transform: translateY(1px);
+}
+
+.power-controls__button--shutdown {
+  background: linear-gradient(135deg, #991b1b, #ef4444);
+}
+
+.power-controls__button--restart {
+  background: linear-gradient(135deg, #b45309, #f97316);
+}
+
+.power-controls__icon {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+.power-controls__target {
+  width: 0;
+  height: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}

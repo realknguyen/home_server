@@ -1,0 +1,87 @@
+- name: Startpage
+#  width: slim
+  # hide-desktop-navigation: true
+  #center-vertically: true
+  head-widgets:
+    - type: monitor
+      cache: 1m
+      title: Services
+      show-failing-only: true
+      sites:
+        - title: OpenWeb
+          url: http://falconnet.local:8081
+          icon: si:openai
+        - title: Ollama
+          url: http://falconnet.local:11434
+          icon: si:ollama
+        - title: YouTube # only for Linux ISOs, of course
+          url: https://youtube.com/
+          icon: si:youtube
+        - title: Amazon
+          url: https://amazon.co.uk/
+          icon: sh:amazon
+        - title: Twitter
+          url: https://x.com/
+          icon: si:x
+  columns:
+    - size: small
+      widgets:
+      - type: server-stats
+        servers:
+          - type: local
+            name: Services
+      - type: docker-containers
+    - size: full
+      widgets:
+        - type: custom-api
+          title: Desktop Controls
+          frameless: true
+          template: |
+            <div class="power-controls">
+              <form class="power-controls__form" method="post" action="http://localhost:5001/shutdown" target="power-controls-target">
+                <input type="hidden" name="token" value="${MY_SECRET_TOKEN}">
+                <button class="power-controls__button power-controls__button--shutdown" type="submit" onclick="return confirm('Send shutdown command?');">
+                  <img class="power-controls__icon" src="/assets/icon-shutdown.svg" alt="Shutdown">
+                </button>
+              </form>
+              <form class="power-controls__form" method="post" action="http://localhost:5001/restart" target="power-controls-target">
+                <input type="hidden" name="token" value="${MY_SECRET_TOKEN}">
+                <button class="power-controls__button power-controls__button--restart" type="submit" onclick="return confirm('Send restart command?');">
+                  <img class="power-controls__icon" src="/assets/icon-restart.svg" alt="Restart">
+                </button>
+              </form>
+            </div>
+            <iframe name="power-controls-target" class="power-controls__target" title="Power controls action target"></iframe>
+    - size: small
+      widgets:
+        - type: bookmarks
+          groups:
+            - links:
+                - title: Gmail
+                  url: https://mail.google.com/mail/u/0/
+                - title: Amazon
+                  url: https://www.amazon.com/
+                - title: Github
+                  url: https://github.com/
+                - title: Wikipedia
+                  url: https://en.wikipedia.org/
+            - title: Entertainment
+              color: 10 70 50
+              links:
+                - title: Netflix
+                  url: https://www.netflix.com/
+                - title: Disney+
+                  url: https://www.disneyplus.com/
+                - title: YouTube
+                  url: https://www.youtube.com/
+                - title: Prime Video
+                  url: https://www.primevideo.com/
+            - title: Social
+              color: 200 50 50
+              links:
+                - title: Reddit
+                  url: https://www.reddit.com/
+                - title: Twitter
+                  url: https://twitter.com/
+                - title: Instagram
+                  url: https://www.instagram.com/

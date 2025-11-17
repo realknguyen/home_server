@@ -1,26 +1,28 @@
 - name: Home
   # Optionally, if you only have a single page you can hide the desktop navigation for a cleaner look
   # hide-desktop-navigation: true
+  head-widgets:
+    - type: search
+      new-tab: true
+      search-engine: google
+      bangs:
+        - title: YouTube
+          shortcut: "!yt"
+          url: https://www.youtube.com/results?search_query={QUERY}
+        - title: Twitter
+          shortcut: "!x"
+          url: https://x.com/search?q={QUERY}
   columns:
     - size: small
       widgets:
         - type: calendar
           first-day-of-week: monday
-
-        - type: rss
-          limit: 10
-          collapse-after: 3
-          cache: 12h
-          feeds:
-            - url: https://selfh.st/rss/
-              title: selfh.st
-            - url: https://ciechanow.ski/atom.xml
-            - url: https://www.joshwcomeau.com/rss.xml
-              title: Josh Comeau
-            - url: https://samwho.dev/rss.xml
-            - url: https://ishadeed.com/feed.xml
-              title: Ahmad Shadeed
-
+        - type: weather
+          location: London, United Kingdom
+          units: metric # alternatively "imperial"
+          hour-format: 24h # alternatively "24h"
+          # Optionally hide the location from being displayed in the widget
+          # hide-location: true
         - type: twitch-channels
           channels:
             - theprimeagen
@@ -29,13 +31,20 @@
             - cohhcarnage
             - christitustech
             - EJ_SA
-
     - size: full
       widgets:
         - type: group
           widgets:
-            - type: hacker-news
+            - type: rss
+              title: Tech
+              limit: 10
+              collapse-after: 5
+              cache: 7d
+              feeds:
+                - url: http://news.ycombinator.com/rss
+                - url: https://www.cnbc.com/rss-feeds/
             - type: lobsters
+            - type: hacker-news
 
         - type: videos
           channels:
@@ -53,20 +62,38 @@
             - type: reddit
               subreddit: selfhosted
               show-thumbnails: true
+            - type: reddit
+              subreddit: wallstreetbets
+              show-thumbnails: true
+            - type: reddit
+              subreddit: futurology
+              show-thumbnails: true
 
     - size: small
       widgets:
-        - type: weather
-          location: London, United Kingdom
-          units: metric # alternatively "imperial"
-          hour-format: 12h # alternatively "24h"
-          # Optionally hide the location from being displayed in the widget
-          # hide-location: true
+        - type: rss
+          limit: 10
+          collapse-after: 5
+          cache: 7d
+          feeds:
+            - url: https://selfh.st/rss/
+              title: selfh.st
+            - url: https://rupakghose.substack.com/feed
+            - url: http://ben-evans.com/benedictevans?format=rss
+            - url: http://news.ycombinator.com/rss
+            - url: https://blog.pragmaticengineer.com/rss/
+            - url: http://stratechery.com/feed/
+            - url: https://feeds.content.dowjones.io/public/rss/RSSMarketsMain
+            - url: https://feeds.bloomberg.com/markets/news.rss
+              title: Bloomberg
 
         - type: markets
+          collapse-after: 5
           markets:
             - symbol: SPY
               name: S&P 500
+              chart-link-template: https://www.tradingview.com/chart/?symbol=SPY
+              symbol-link-template: https://www.yahoofinance.com/search?tbm=nws&q=SPY
             - symbol: BTC-USD
               name: Bitcoin
             - symbol: NVDA
@@ -75,6 +102,8 @@
               name: Apple
             - symbol: MSFT
               name: Microsoft
+            - symbol: META
+              name: Meta
 
         - type: releases
           cache: 1d

@@ -69,6 +69,29 @@ services:
     extra_hosts:
       - "ollama:host-gateway"
 
+  glance:
+    container_name: glance
+    image: glanceapp/glance
+    restart: unless-stopped
+    volumes:
+      - ./glance/config:/app/config
+      - ./glance/assets:/app/assets
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - ./certs:/certs:ro
+    ports:
+      # - 8443:8443
+      - 8080:8080
+    env_file: .env
+    # environment:
+    #   GLANCE_ENABLE_TLS: "true"
+    #   GLANCE_TLS_CERT: /certs/localhost.crt
+    #   GLANCE_TLS_KEY: /certs/localhost.key
+    labels:
+      glance.name: Glance
+      glance.icon: sh:glance
+      glance.url: http://localhost:8080
+      glance.description: Home Dashboard
   searxng:
     image: searxng/searxng:latest
     container_name: searxng
@@ -84,7 +107,26 @@ services:
       - SEARXNG_BASE_URL=http://searxng:8082
     depends_on:
       - ollama
-
+  # local-api:
+  #   container_name: glance-local-api
+  #   build:
+  #     context: ./custom_api_extension
+  #   restart: unless-stopped
+  #   privileged: true # <-- Add this line for broad access
+  #   volumes:
+  #     - ./custom_api_extension:/app
+  #     - /etc/localtime:/etc/localtime:ro # Good practice
+  #     # - ./certs:/app/certs:ro
+  #   ports:
+  #     - 5001:5001
+  #   env_file: .env
+  #   depends_on:
+  #     - glance
+  #   labels:
+  #     glance.name: Server
+  #     glance.icon: mdi:server-outline
+  #     glance.url: https://localhost:5051
+  #     glance.description: Host Server
 networks:
   local_net:
     driver: bridge
