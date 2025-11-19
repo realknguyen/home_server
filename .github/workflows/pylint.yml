@@ -41,4 +41,4 @@ jobs:
 
       - name: Run pylint
         run: |
-          pylint glance manage_stack.py
+          pylint $(git ls-files '*.py')
