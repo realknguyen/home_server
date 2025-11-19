@@ -1,10 +1,27 @@
 services:
   ollama:
-    # GPU-specific overrides applied only when this file is included.
+    # GPU-specific overrides for NVIDIA RTX 5080
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [gpu]
+              capabilities: [gpu, compute, utility]
+          # Reserve GPU memory (adjust based on your needs)
+          memory: 12G # Reserve 12GB for Ollama (RTX 5080 has 16GB)
+        limits:
+          memory: 16G # Max memory limit
+
+    # Runtime configuration for better GPU utilization
+    runtime: nvidia
+
+    # GPU-specific environment overrides
+    environment:
+      # Enable tensor cores and optimize for Ada Lovelace architecture (RTX 40/50 series)
+      - CUDA_VISIBLE_DEVICES=0
+      - CUDA_LAUNCH_BLOCKING=0
+      - CUDA_CACHE_DISABLE=0
+
+      # For very large models, increase context further
+      - OLLAMA_NUM_CTX=65536 # 64K context for GPU mode (if VRAM permits)

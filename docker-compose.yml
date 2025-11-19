@@ -5,21 +5,43 @@ services:
     container_name: ollama
     networks:
       - local_net
-    # IMPORTANT: The host port is 11435, the container port is 11434
     ports:
       - "11434:11434"
     volumes:
-      # 🔑 CRITICAL WSL CHANGE: C:/... must become /c/... for WSL volume binding
       - ./data/ollama:/root/.ollama
     deploy:
       restart_policy:
         condition: unless-stopped
     environment:
-      # Kept your original environment variables
+      # GPU Configuration
       - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+      # Network Configuration
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_PORT=11434
-      - OLLAMA_KEEP_ALIVE=1h
+
+      # Performance Optimizations for RTX 5080
+      - OLLAMA_NUM_PARALLEL=4 # Handle 4 parallel requests (adjust based on VRAM)
+      - OLLAMA_MAX_LOADED_MODELS=2 # Keep 2 models in VRAM simultaneously
+      - OLLAMA_KEEP_ALIVE=30m # Keep models loaded for 30 minutes
+
+      # Context Window (RTX 5080 has plenty of VRAM)
+      - OLLAMA_NUM_CTX=32768 # 32K context window (128K for supported models)
+
+      # GPU Acceleration
+      - OLLAMA_NUM_GPU=999 # Use all available GPU layers
+      - OLLAMA_GPU_OVERHEAD=0 # Minimize GPU memory overhead
+
+      # Flash Attention (if supported by model)
+      - OLLAMA_FLASH_ATTENTION=1 # Enable flash attention for faster inference
+
+      # Memory Management
+      - OLLAMA_MAX_VRAM=0 # 0 = use all available VRAM
+
+      # Optional: Batch size for processing
+      - OLLAMA_NUM_BATCH=512 # Larger batch size for RTX 5080
+
     healthcheck:
       test: ["CMD", "ollama", "--version"]
       interval: 30s
@@ -27,7 +49,6 @@ services:
       retries: 3
       start_period: 10s
     platform: linux/amd64
-    # This host-gateway extra host remains, though usually not needed for inter-container chat
     extra_hosts:
       - "ollama:host-gateway"
   openwebui:
