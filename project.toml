@@ -33,6 +33,12 @@ packages = [
     { include = "glance" }
 ]
 
+[tool.manage_stack]
+base_compose_file = "docker-compose.yml"
+gpu_compose_file = "docker-compose.gpu.yml"
+optional_dependency_groups = ["dev"]
+auto_install_dependencies = true
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

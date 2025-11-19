@@ -1,7 +1,7 @@
 # Setup for Linux WSL runtime on windows
 services:
   ollama:
-    image: ollama/ollama:0.12.10
+    image: ollama/ollama:latest
     container_name: ollama
     networks:
       - local_net
@@ -11,15 +11,7 @@ services:
     volumes:
       # 🔑 CRITICAL WSL CHANGE: C:/... must become /c/... for WSL volume binding
       - ./data/ollama:/root/.ollama
-    # 🌟 WSL 2/Linux GPU Configuration (Recommended for Docker Compose) 🌟
     deploy:
-      resources:
-        reservations:
-          devices:
-            # This ensures your RTX 5080 is correctly exposed to the container via WSL
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
       restart_policy:
         condition: unless-stopped
     environment:

@@ -1,0 +1,10 @@
+services:
+  ollama:
+    # GPU-specific overrides applied only when this file is included.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

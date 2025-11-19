@@ -44,6 +44,7 @@ local_llm/
 │       └── tests/...       # (See top-level tests/)
 ├── tests/                  # Pytest suite for the Flask extension
 ├── docker-compose.yml      # Multi-service stack definition
+├── docker-compose.gpu.yml  # Optional GPU overrides auto-selected when NVIDIA runtime exists
 ├── project.toml            # PEP 621 metadata & dev dependency lock-in
 └── README.md               # You are here
 ```
@@ -70,20 +71,30 @@ local_llm/
 
    Keep this file out of source control (it's already ignored).
 
-3. **Provision Python tooling (optional but recommended for working on the Flask API)**
+3. **Launch everything with the orchestration script**
+
+   ```bash
+   python manage_stack.py
+   ```
+
+   Each run:
+   - Installs Python dependencies from `project.toml` (core + optional groups listed under `[tool.manage_stack.optional_dependency_groups]`).
+   - Verifies `.env` exists before touching Docker.
+   - Recreates the Docker Compose stack, automatically layering in `docker-compose.gpu.yml` when `docker info` reports an NVIDIA runtime.
+   - Boots the Flask API (`glance/custom_api_extension/host_flask.py`) once containers are healthy.
+
+4. **Prefer manual control?** (optional)
 
    ```bash
    python -m venv .venv
    source .venv/bin/activate
-   pip install -r glance/custom_api_extension/requirements.txt
-   # or, if your tooling reads `project.toml` (or a copy named `pyproject.toml`):
-   pip install -e .[dev]
-   ```
-
-4. **Launch the container stack**
-
-   ```bash
+   python -m pip install --upgrade pip
+   python -m pip install -r glance/custom_api_extension/requirements.txt
+   # or, if your tooling consumes `project.toml` / `pyproject.toml`:
+   python -m pip install -e .[dev]
    docker compose up -d
+   # GPU-enabled manual launch:
+   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
    ```
 
    | Service | URL | Notes |
@@ -93,7 +104,30 @@ local_llm/
    | Glance | `http://localhost:8080` | Dashboard configured by `glance/config`. |
    | SearxNG | `http://localhost:8082` | Self-hosted metasearch for RAG or manual queries. |
 
-   Health checks on Ollama gate Open WebUI startup. GPU passthrough is enabled by default through `deploy.resources`.
+   Health checks on Ollama gate Open WebUI startup. GPU passthrough is now opt-in via `docker-compose.gpu.yml`; include it only if your host exposes NVIDIA runtimes.
+
+---
+
+## Stack Automation Script
+
+`manage_stack.py` is the recommended way to (re)start the entire stack:
+
+- Installs dependencies declared in `project.toml`.
+- Ensures `.env` exists before issuing Docker commands.
+- Detects NVIDIA runtimes via `docker info` and automatically merges `docker-compose.gpu.yml` when available.
+- Stops any running containers, recreates the stack, and finally launches the Flask API in the foreground so you can see its logs.
+
+Behaviour is configurable from `[tool.manage_stack]` inside `project.toml`:
+
+```toml
+[tool.manage_stack]
+base_compose_file = "docker-compose.yml"
+gpu_compose_file = "docker-compose.gpu.yml"
+optional_dependency_groups = ["dev"]
+auto_install_dependencies = true
+```
+
+Set `auto_install_dependencies = false` to skip the pip step, or adjust `optional_dependency_groups` if you only want a subset of optional extras.
 
 ---
 
@@ -103,12 +137,26 @@ Located in `glance/custom_api_extension`, this mini-service exposes authenticate
 
 ### Running Locally
 
-```bash
-source .venv/bin/activate
-export FLASK_APP=glance.custom_api_extension.host_flask
-export MY_SECRET_TOKEN=change-me
-python -m flask run --host=0.0.0.0 --port=5001
-```
+1. **Install dependencies**
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   python -m pip install --upgrade pip
+   python -m pip install -r glance/custom_api_extension/requirements.txt
+   # or, to honor the dependency lists inside `project.toml`:
+   python -m pip install -e .[dev]
+   ```
+
+2. **Start the server**
+
+   ```bash
+   export FLASK_APP=glance.custom_api_extension.host_flask
+   export MY_SECRET_TOKEN=change-me  # or read from .env via `python -m flask run --env-file .env`
+   python -m flask run --host=0.0.0.0 --port=5001
+   # direct alternative:
+   python glance/custom_api_extension/host_flask.py
+   ```
 
 * Rate limiting: default limit is `5 per minute` per IP enforced by `flask-limiter`.
 * Auth: `token_required` accepts `Authorization: Bearer <token>`, `Authorization: <token>`, `token` form fields, or `?token=` query params.
@@ -134,6 +182,8 @@ Commands are executed via `run_command()` which captures output and surfaces fai
 | `glance/assets/user.css` | Brand the dashboard. Clear your browser cache (Ctrl+F5) after editing due to caching. |
 | `config/searxng-config` | Passed-through config directory for SearxNG container. |
 | `data/<service>` | Docker bind mounts that retain models, indexes, and user data between restarts. |
+| `docker-compose.gpu.yml` | NVIDIA device reservations layered on top of `docker-compose.yml` when GPU acceleration is available. |
+| `manage_stack.py` | Automation entry point that installs deps, restarts Compose, and launches the Flask API. |
 
 Feel free to add more compose services (e.g., `qdrant`, `postgres`) – just extend `docker-compose.yml` and Glance labels for discovery.
 
@@ -155,7 +205,7 @@ CI is not bundled, but the commands above are what the project expects before pu
 | ----- | --- |
 | Rate limiter blocking tests | The default pytest client fixture disables the limiter; toggle `app.config['RATELIMIT_ENABLED'] = True` inside a test to cover limiter behavior (see `tests/test_api_endpoints.py:test_index_rate_limiting_enforced`). |
 | Permission errors on shutdown/restart | Ensure the user that runs the Flask API has sudo rights without a password prompt or adjust `run_command` to call privileged helper scripts. |
-| GPU not visible inside Ollama container | Install the NVIDIA Container Toolkit and verify `docker info | grep -i nvidia` before starting the stack. |
+| GPU not visible inside Ollama container | Install the NVIDIA Container Toolkit, verify `docker info | grep -i nvidia`, then either run `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d` or rerun `python manage_stack.py` so the GPU overrides are applied. |
 | Glance auth failing | Regenerate `MY_PASSWORD` hash with Werkzeug and keep `MY_SECRET_TOKEN` identical across `.env` and any widgets hitting the Flask API. |
 
 ---
