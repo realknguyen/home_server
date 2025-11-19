@@ -79,6 +79,7 @@ local_llm/
 
    Each run:
    - Installs Python dependencies from `project.toml` (core + optional groups listed under `[tool.manage_stack.optional_dependency_groups]`).
+   - Bootstraps `pip` automatically with `ensurepip` if your Python interpreter was installed without it.
    - Verifies `.env` exists before touching Docker.
    - Recreates the Docker Compose stack, automatically layering in `docker-compose.gpu.yml` when `docker info` reports an NVIDIA runtime.
    - Boots the Flask API (`glance/custom_api_extension/host_flask.py`) once containers are healthy.

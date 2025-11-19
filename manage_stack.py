@@ -125,8 +125,36 @@ def install_python_dependencies() -> None:
     if not packages:
         return
     python_executable = sys.executable or "python3"
+    ensure_pip_installed(python_executable)
     cmd = [python_executable, "-m", "pip", "install", *packages]
     run_with_output(cmd, "Installing Python dependencies from project.toml")
+
+
+def ensure_pip_installed(python_executable: str) -> None:
+    """Guarantee pip is available for the selected interpreter."""
+    check = subprocess.run(
+        [python_executable, "-m", "pip", "--version"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if check.returncode == 0:
+        return
+    print("pip not found for current interpreter; attempting ensurepip bootstrap.")
+    run_with_output(
+        [python_executable, "-m", "ensurepip", "--upgrade"],
+        "Bootstrapping pip via ensurepip",
+    )
+    post_check = subprocess.run(
+        [python_executable, "-m", "pip", "--version"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if post_check.returncode != 0:
+        raise RuntimeError(
+            "Unable to install pip automatically; please install pip for this Python interpreter."
+        )
 
 
 def gpu_runtime_available() -> bool:
