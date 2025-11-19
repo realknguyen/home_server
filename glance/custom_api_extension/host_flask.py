@@ -1,56 +1,82 @@
+"""Flask application for host control API.
+
+This module provides authenticated endpoints for shutting down and restarting
+the host system. It includes CORS support, rate limiting, and logging.
+"""
+
 import os
 import sys
+import logging
+import re
+from functools import wraps
+from logging.handlers import RotatingFileHandler
 
-# Allow running this file directly (python glance/custom_api_extension/host_flask.py)
+from flask import Flask, request, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_cors import CORS
+
+# Allow running this file directly
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from flask import Flask, request, jsonify
-from functools import wraps
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from glance.custom_api_extension.flask_utils import detect_platform, run_command
-from flask_cors import CORS
-import logging
-from logging.handlers import RotatingFileHandler
-import os
-import re
 
-# Custom formatter to strip ANSI color codes from file logs
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
 class NoColorFormatter(logging.Formatter):
-    """Remove ANSI color codes from log messages"""
+    """Custom formatter that strips ANSI color codes from log messages."""
+    
     ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     
     def format(self, record):
+        """Format the log record and remove ANSI escape sequences."""
         message = super().format(record)
         return self.ANSI_ESCAPE.sub('', message)
 
-# Configure logging to file
-log_dir = os.path.join(os.path.dirname(__file__), '..', '..')
-log_file = os.path.join(log_dir, 'host_flask.log')
-file_handler = RotatingFileHandler(log_file, maxBytes=10485760, backupCount=3)  # 10MB per file, keep 3 backups
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(NoColorFormatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-))
 
-# Also log to console (with colors)
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-))
+def configure_logging():
+    """Configure file and console logging handlers."""
+    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    
+    # File handler (no colors)
+    log_dir = os.path.join(os.path.dirname(__file__), '..', '..')
+    log_file = os.path.join(log_dir, 'host_flask.log')
+    file_handler = RotatingFileHandler(
+        log_file, 
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=3
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(NoColorFormatter(log_format))
+    
+    # Console handler (with colors)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter(log_format))
+    
+    # Configure root logger
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[file_handler, console_handler]
+    )
 
-# Configure root logger
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[file_handler, console_handler]
-)
+
+configure_logging()
+
+
+# ============================================================================
+# Flask Application Setup
+# ============================================================================
 
 app = Flask(__name__)
+app.logger.setLevel(logging.INFO)
 
-# Enable CORS with Private Network Access support for Chrome
+# CORS configuration for Private Network Access (Chrome)
 CORS(app, resources={
     r"/*": {
         "origins": "*",
@@ -60,83 +86,198 @@ CORS(app, resources={
     }
 })
 
-# Add Private Network Access header to all responses
-@app.after_request
-def add_private_network_header(response):
-    response.headers['Access-Control-Allow-Private-Network'] = 'true'
-    return response
-
+# Rate limiting
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["20 per minute"],  # global fallback
-    storage_uri="memory://"  # explicit backend to avoid runtime warnings
+    default_limits=["20 per minute"],
+    storage_uri="memory://"
 )
-app.logger.setLevel(logging.INFO)
+
+
+# ============================================================================
+# Middleware
+# ============================================================================
+
+@app.after_request
+def add_private_network_header(response):
+    """Add Private Network Access header for Chrome compatibility."""
+    response.headers['Access-Control-Allow-Private-Network'] = 'true'
+    return response
+
 
 def token_required(f):
+    """Decorator to validate authentication token.
+    
+    Supports token in:
+    - Authorization header (with or without 'Bearer ' prefix)
+    - Form data (token field)
+    - Query parameter (token field)
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
-        # Support either Authorization header (optionally Bearer) or form/query token
-        raw_header = request.headers.get('Authorization', '')
-        token = ''
-        if raw_header:
-            if raw_header.lower().startswith('bearer '):
-                token = raw_header.split(' ', 1)[1].strip()
-            else:
-                token = raw_header.strip()
-        if not token:
-            token = request.form.get('token') or request.args.get('token')
+        token = _extract_token_from_request()
+        
         if not token:
             return jsonify({'message': 'Token is missing!'}), 403
+        
         valid_token = os.getenv('MY_SECRET_TOKEN', '')
         if token != valid_token:
             return jsonify({'message': 'Invalid token!'}), 403
+        
         return f(*args, **kwargs)
+    
     return decorated
+
+
+def _extract_token_from_request():
+    """Extract authentication token from request."""
+    # Try Authorization header first
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header:
+        if auth_header.lower().startswith('bearer '):
+            return auth_header.split(' ', 1)[1].strip()
+        return auth_header.strip()
+    
+    # Fall back to form data or query params
+    return request.form.get('token') or request.args.get('token')
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def _stop_docker_compose():
+    """Stop Docker Compose stack gracefully.
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    app.logger.info("Stopping Docker Compose stack...")
+    stdout, returncode = run_command('docker compose down')
+    
+    if returncode != 0:
+        app.logger.warning("Failed to stop Docker Compose: %s", stdout.strip())
+        return False
+    
+    app.logger.info("Docker Compose stopped successfully")
+    return True
+
+
+def _get_shutdown_command(platform_id):
+    """Get the appropriate shutdown command for the platform.
+    
+    Args:
+        platform_id: Platform identifier from detect_platform()
+        
+    Returns:
+        str or None: Shutdown command, or None if unsupported
+    """
+    if platform_id in ('linux', 'wsl', 'darwin') or platform_id.startswith('linux'):
+        return 'sudo shutdown -h now'
+    elif platform_id == 'windows':
+        return 'shutdown /s /t 0'
+    return None
+
+
+def _get_restart_command(platform_id):
+    """Get the appropriate restart command for the platform.
+    
+    Args:
+        platform_id: Platform identifier from detect_platform()
+        
+    Returns:
+        str or None: Restart command, or None if unsupported
+    """
+    if platform_id in ('linux', 'wsl', 'darwin') or platform_id.startswith('linux'):
+        return 'shutdown -r now'
+    elif platform_id == 'windows':
+        return 'shutdown /r /t 0'
+    return None
+
+
+# ============================================================================
+# API Routes
+# ============================================================================
 
 @app.route('/')
 @limiter.limit("5 per minute")
 def index():
+    """Simple health check endpoint."""
     return 'Hello, World!'
+
 
 @app.route('/shutdown', methods=['POST'])
 @token_required
 @limiter.limit("5 per minute")
 def shutdown():
+    """Shutdown the host system.
+    
+    Note: For production use, consider adding docker compose down before
+    shutdown to gracefully stop containers. This is omitted here to keep
+    the function focused and testable.
+    """
     platform_id = detect_platform()
-    app.logger.info("Shutdown button pressed on %s", platform_id)
-    command = None
-    if platform_id.startswith('linux') or platform_id == 'wsl' or platform_id == 'darwin':
-        command = 'sudo shutdown -h now'
-    elif platform_id == 'windows':
-        command = 'shutdown /s /t 0'
-    else:
+    app.logger.info("Shutdown requested for platform: %s", platform_id)
+    
+    # Get and execute shutdown command
+    command = _get_shutdown_command(platform_id)
+    if not command:
+        app.logger.error("Unsupported platform: %s", platform_id)
         return jsonify({"message": f"Unsupported platform: {platform_id}"}), 400
-
+    
     stdout, returncode = run_command(command)
     if returncode != 0:
-        return jsonify({"message": "Failed to shut down", "error": stdout.strip()}), 500
-    return jsonify({"message": "Shutdown command issued", "platform": platform_id})
+        app.logger.error("Shutdown failed: %s", stdout.strip())
+        return jsonify({
+            "message": "Failed to shut down",
+            "error": stdout.strip()
+        }), 500
+    
+    app.logger.info("Shutdown command issued successfully")
+    return jsonify({
+        "message": "Shutdown command issued",
+        "platform": platform_id
+    })
+
 
 @app.route('/restart', methods=['POST'])
 @token_required
 @limiter.limit("5 per minute")
 def restart():
+    """Restart the host system.
+    
+    Note: For production use, consider adding docker compose down before
+    restart to gracefully stop containers. This is omitted here to keep
+    the function focused and testable.
+    """
     platform_id = detect_platform()
-    app.logger.info("Restart button pressed on %s", platform_id)
-    command = None
-    if platform_id.startswith('linux') or platform_id == 'wsl' or platform_id == 'darwin':
-        command = 'shutdown -r now'
-    elif platform_id == 'windows':
-        command = 'shutdown /r /t 0'
-    else:
+    app.logger.info("Restart requested for platform: %s", platform_id)
+    
+    # Get and execute restart command
+    command = _get_restart_command(platform_id)
+    if not command:
+        app.logger.error("Unsupported platform: %s", platform_id)
         return jsonify({"message": f"Unsupported platform: {platform_id}"}), 400
-
+    
     stdout, returncode = run_command(command)
     if returncode != 0:
-        return jsonify({"message": "Failed to restart", "error": stdout.strip()}), 500
-    return jsonify({"message": "Restart command issued", "platform": platform_id})
+        app.logger.error("Restart failed: %s", stdout.strip())
+        return jsonify({
+            "message": "Failed to restart",
+            "error": stdout.strip()
+        }), 500
+    
+    app.logger.info("Restart command issued successfully")
+    return jsonify({
+        "message": "Restart command issued",
+        "platform": platform_id
+    })
+
+
+# ============================================================================
+# Application Entry Point
+# ============================================================================
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, load_dotenv=True)
