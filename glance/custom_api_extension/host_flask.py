@@ -11,10 +11,12 @@ from functools import wraps
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from glance.custom_api_extension.flask_utils import detect_platform, run_command
+from flask_cors import CORS
 import logging
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 limiter = Limiter(
     get_remote_address,
     app=app,

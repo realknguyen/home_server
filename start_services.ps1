@@ -30,7 +30,9 @@ if ($LASTEXITCODE -eq 0) {
 
     if (Test-Path $FlaskApp) {
         Write-Host "Starting Flask server..."
-        & $PythonExe $FlaskApp
+        $LogFile = Join-Path $PSScriptRoot "flask_service.log"
+        Write-Host "Redirecting Flask output to $LogFile"
+        & $PythonExe $FlaskApp *>> $LogFile
     } else {
         Write-Error "Flask application file not found at: $FlaskApp"
         exit 1

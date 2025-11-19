@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -173,7 +174,10 @@ def collect_project_dependencies() -> list[str]:
     return ordered
 
 
-def install_python_dependencies(python_executable: str) -> None:
+def install_python_dependencies(python_executable: str, skip: bool = False) -> None:
+    if skip:
+        print("Skipping dependency installation (--skip-deps flag).")
+        return
     if not AUTO_INSTALL_DEPENDENCIES:
         print("Dependency auto-install disabled via project.toml.")
         return
@@ -181,7 +185,7 @@ def install_python_dependencies(python_executable: str) -> None:
     if not packages:
         return
     ensure_pip_installed(python_executable)
-    cmd = [python_executable, "-m", "pip", "install", *packages]
+    cmd = [python_executable, "-m", "pip", "install", "--upgrade", *packages]
     run_with_output(cmd, "Installing Python dependencies from project.toml")
 
 
@@ -258,10 +262,30 @@ def should_use_gpu_override() -> bool:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Manage the Docker stack and Flask API server."
+    )
+    parser.add_argument(
+        "--skip-deps",
+        action="store_true",
+        help="Skip dependency installation for faster restarts",
+    )
+    parser.add_argument(
+        "--restart-only",
+        action="store_true",
+        help="Skip 'docker compose down' step to preserve container state",
+    )
+    parser.add_argument(
+        "--clean-shutdown",
+        action="store_true",
+        help="Force stop containers with both base and GPU compose files to avoid port conflicts",
+    )
+    args = parser.parse_args()
+
     python_executable = resolve_python_interpreter()
     use_gpu_override = should_use_gpu_override()
     try:
-        install_python_dependencies(python_executable)
+        install_python_dependencies(python_executable, skip=args.skip_deps)
     except RuntimeError as err:
         print(err, file=sys.stderr)
         sys.exit(1)
@@ -274,11 +298,34 @@ def main() -> None:
 
     try:
         ensure_env_file()
-        if running:
+        
+        # Clean shutdown: stop containers with both compose file combinations
+        if args.clean_shutdown:
+            print("Performing clean shutdown (stopping with all compose file combinations)...")
+            # Try stopping with GPU file first
+            if GPU_COMPOSE_FILE.exists():
+                try:
+                    run_with_output(
+                        build_compose_command(["down"], include_gpu_override=True),
+                        "Stopping Docker Compose stack (with GPU overrides)",
+                    )
+                except RuntimeError:
+                    print("Warning: Failed to stop with GPU compose file, continuing...")
+            # Then stop with base file only
+            try:
+                run_with_output(
+                    build_compose_command(["down"], include_gpu_override=False),
+                    "Stopping Docker Compose stack (base only)",
+                )
+            except RuntimeError:
+                print("Warning: Failed to stop with base compose file, continuing...")
+        elif running and not args.restart_only:
             run_with_output(
                 build_compose_command(["down"], use_gpu_override),
                 "Stopping running Docker Compose stack",
             )
+        elif running and args.restart_only:
+            print("Skipping 'docker compose down' (--restart-only flag).")
         else:
             print("No running Docker Compose stack detected.")
 

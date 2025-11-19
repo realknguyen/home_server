@@ -74,7 +74,7 @@ services:
       # - ./certs:/certs:ro
     ports:
       # - 8443:8443
-      - 8080:8080
+      - 8090:8080
     env_file: .env
     # environment:
     #   GLANCE_ENABLE_TLS: "true"
