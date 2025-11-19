@@ -181,6 +181,97 @@ The script automatically:
 
 ---
 
+## RTX 5080 GPU Optimization
+
+The stack is pre-configured with optimizations for NVIDIA RTX 5080 (16GB VRAM). When GPU support is detected, `manage_stack.py` automatically applies `docker-compose.gpu.yml` overrides.
+
+### Performance Settings
+
+| Setting               | Value                 | Purpose                                          |
+| --------------------- | --------------------- | ------------------------------------------------ |
+| **Context Window**    | 32K (64K in GPU mode) | Extended memory for long conversations/documents |
+| **Parallel Requests** | 4                     | Handle multiple users simultaneously             |
+| **Batch Size**        | 512                   | Optimized throughput for RTX 5080                |
+| **Flash Attention**   | Enabled               | 2-4x faster inference                            |
+| **Model Caching**     | 2 models              | Keep frequently-used models in VRAM              |
+
+### VRAM Usage by Model
+
+| Model Size | VRAM   | 32K Context | 64K Context | Performance              |
+| ---------- | ------ | ----------- | ----------- | ------------------------ |
+| 7B params  | ~5 GB  | ✅          | ✅          | ⭐ 60-100 tok/s          |
+| 13B params | ~9 GB  | ✅          | ✅          | ⭐ 40-60 tok/s           |
+| 34B params | ~20 GB | ⚠️          | ❌          | 20-30 tok/s (tight fit)  |
+| 70B params | ~40 GB | ❌          | ❌          | Too large for single GPU |
+
+### Recommended Models
+
+```bash
+# Fast & efficient (best for chat)
+docker exec ollama ollama pull llama3.1:8b
+
+# Best quality/speed balance
+docker exec ollama ollama pull llama3.1:13b
+
+# Excellent for coding
+docker exec ollama ollama pull mistral:7b
+
+# Maximum quality (fits with optimizations)
+docker exec ollama ollama pull yi:34b
+```
+
+### Tuning for Different Use Cases
+
+**Maximum Throughput** (multiple users):
+
+```yaml
+OLLAMA_NUM_PARALLEL: 6-8
+OLLAMA_MAX_LOADED_MODELS: 1
+OLLAMA_NUM_CTX: 16384
+```
+
+**Maximum Context** (long documents):
+
+```yaml
+OLLAMA_NUM_CTX: 131072 # 128K
+OLLAMA_NUM_PARALLEL: 1
+OLLAMA_NUM_BATCH: 256
+```
+
+**Fast Model Switching** (development):
+
+```yaml
+OLLAMA_KEEP_ALIVE: 5m
+OLLAMA_MAX_LOADED_MODELS: 3
+OLLAMA_NUM_CTX: 8192
+```
+
+### Monitoring GPU Performance
+
+```bash
+# Real-time GPU monitoring
+nvidia-smi -l 1
+
+# Check loaded models
+docker exec ollama ollama ps
+
+# View Ollama logs
+docker logs ollama -f
+
+# Test inference speed
+time docker exec ollama ollama run llama3.1:8b "Write a short story"
+```
+
+### Troubleshooting
+
+**Out of Memory**: Reduce `OLLAMA_NUM_CTX` to 16384 or use smaller models  
+**Slow Performance**: Verify GPU mode with `docker logs ollama | grep -i gpu`  
+**Models Unloading**: Increase `OLLAMA_KEEP_ALIVE` to `1h` or `24h`
+
+See `RTX_5080_OPTIMIZATION.md` for detailed tuning guide.
+
+---
+
 ## Custom Flask API Extension
 
 Located in `glance/custom_api_extension`, this mini-service exposes authenticated endpoints that Glance widgets can call to control the host.
