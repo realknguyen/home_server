@@ -1,19 +1,25 @@
+import os
+import sys
+
+# Allow running this file directly (python glance/custom_api_extension/host_flask.py)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from flask import Flask, request, jsonify
 from functools import wraps
-#from flask_cors import CORS
-#from token_checker import token_required
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-import utils
+from glance.custom_api_extension.flask_utils import detect_platform, run_command
 import logging
-import os
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["20 per minute"]  # global fallback
+    default_limits=["20 per minute"],  # global fallback
+    storage_uri="memory://"  # explicit backend to avoid runtime warnings
 )
 app.logger.setLevel(logging.INFO)
 
@@ -47,7 +53,7 @@ def index():
 @token_required
 @limiter.limit("5 per minute")
 def shutdown():
-    platform_id = utils.detect_platform()
+    platform_id = detect_platform()
     app.logger.info("Shutdown button pressed on %s", platform_id)
     command = None
     if platform_id.startswith('linux') or platform_id == 'wsl' or platform_id == 'darwin':
@@ -57,16 +63,16 @@ def shutdown():
     else:
         return jsonify({"message": f"Unsupported platform: {platform_id}"}), 400
 
-    # stdout, returncode = utils.run_command(command)
-    # if returncode != 0:
-    #     return jsonify({"message": "Failed to shut down", "error": stdout.strip()}), 500
+    stdout, returncode = run_command(command)
+    if returncode != 0:
+        return jsonify({"message": "Failed to shut down", "error": stdout.strip()}), 500
     return jsonify({"message": "Shutdown command issued", "platform": platform_id})
 
 @app.route('/restart', methods=['POST'])
 @token_required
 @limiter.limit("5 per minute")
 def restart():
-    platform_id = utils.detect_platform()
+    platform_id = detect_platform()
     app.logger.info("Restart button pressed on %s", platform_id)
     command = None
     if platform_id.startswith('linux') or platform_id == 'wsl' or platform_id == 'darwin':
@@ -76,9 +82,9 @@ def restart():
     else:
         return jsonify({"message": f"Unsupported platform: {platform_id}"}), 400
 
-    # stdout, returncode = utils.run_command(command)
-    # if returncode != 0:
-    #     return jsonify({"message": "Failed to restart", "error": stdout.strip()}), 500
+    stdout, returncode = run_command(command)
+    if returncode != 0:
+        return jsonify({"message": "Failed to restart", "error": stdout.strip()}), 500
     return jsonify({"message": "Restart command issued", "platform": platform_id})
 
 if __name__ == '__main__':

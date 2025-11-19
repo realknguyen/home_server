@@ -1,41 +1,36 @@
 [project]
-name = "local-llm"
-version = "0.1.0"
-description = "Simple RAG implementation with LangChain and Ollama"
+name = "local-llm-home-stack"
+version = "0.2.0"
+description = "Self-hosted LLM home lab stack with Glance dashboard automation and a tested Flask control API."
 readme = "README.md"
+license = { file = "LICENSE" }
 authors = [
-    { name = "Khoi Nguyen", email = "khoinet9690@gmail.com"}
+    { name = "Khoi Nguyen", email = "khoinet9690@gmail.com" }
 ]
-requires-python = ">=3.10,<4.0"
+keywords = ["ollama", "glance", "open-webui", "searxng", "flask"]
+requires-python = ">=3.11,<4.0"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "langchain>=0.2.0",
-    "langchain-community>=0.2.0",
-    "langchain-ollama>=0.1.0",
-    "langchain-core>=0.2.0",
-    "faiss-cpu>=1.7.4",
-    "fastapi>=0.104.1",
-    "uvicorn>=0.24.0",
-    "python-dotenv>=1.0.0",
-    "requests>=2.31.0",
-    "pydantic>=2.0.0"
+    "Flask>=3.0,<4.0",
+    "flask-limiter>=3.5,<4.0",
+    "distro>=1.8,<2.0",
+    "python-dotenv>=1.0,<2.0"
 ]
 
 [project.optional-dependencies]
-# Dependencies needed for development, testing, and formatting
 dev = [
-    "pytest==7.4.2",
-    "black==23.7.0",
-    "flake8==6.0.0"
+    "pytest>=8.3,<9.0",
+    "black>=24.8,<25.0",
+    "ruff>=0.6,<0.7"
 ]
 
 [tool.poetry]
 packages = [
-    { include = "src"}  # <-- Use the dictionary structure here
+    { include = "glance" }
 ]
 
 [build-system]
