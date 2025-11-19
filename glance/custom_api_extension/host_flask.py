@@ -32,9 +32,9 @@ except ImportError:  # pragma: no cover
 
 class NoColorFormatter(logging.Formatter):
     """Custom formatter that strips ANSI color codes from log messages."""
-    
+
     ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    
+
     def format(self, record):
         """Format the log record and remove ANSI escape sequences."""
         message = super().format(record)
@@ -44,23 +44,23 @@ class NoColorFormatter(logging.Formatter):
 def configure_logging():
     """Configure file and console logging handlers."""
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    
+
     # File handler (no colors)
     log_dir = os.path.join(os.path.dirname(__file__), '..', '..')
     log_file = os.path.join(log_dir, 'host_flask.log')
     file_handler = RotatingFileHandler(
-        log_file, 
+        log_file,
         maxBytes=10 * 1024 * 1024,  # 10MB
         backupCount=3
     )
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(NoColorFormatter(log_format))
-    
+
     # Console handler (with colors)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(logging.Formatter(log_format))
-    
+
     # Configure root logger
     logging.basicConfig(
         level=logging.INFO,
@@ -110,7 +110,7 @@ def add_private_network_header(response):
 
 def token_required(f):
     """Decorator to validate authentication token.
-    
+
     Supports token in:
     - Authorization header (with or without 'Bearer ' prefix)
     - Form data (token field)
@@ -119,16 +119,16 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = _extract_token_from_request()
-        
+
         if not token:
             return jsonify({'message': 'Token is missing!'}), 403
-        
+
         valid_token = os.getenv('MY_SECRET_TOKEN', '')
         if token != valid_token:
             return jsonify({'message': 'Invalid token!'}), 403
-        
+
         return f(*args, **kwargs)
-    
+
     return decorated
 
 
@@ -140,7 +140,7 @@ def _extract_token_from_request():
         if auth_header.lower().startswith('bearer '):
             return auth_header.split(' ', 1)[1].strip()
         return auth_header.strip()
-    
+
     # Fall back to form data or query params
     return request.form.get('token') or request.args.get('token')
 
@@ -151,33 +151,33 @@ def _extract_token_from_request():
 
 def _stop_docker_compose():
     """Stop Docker Compose stack gracefully.
-    
+
     Returns:
         bool: True if successful, False otherwise
     """
     app.logger.info("Stopping Docker Compose stack...")
     stdout, returncode = run_command('docker compose down')
-    
+
     if returncode != 0:
         app.logger.warning("Failed to stop Docker Compose: %s", stdout.strip())
         return False
-    
+
     app.logger.info("Docker Compose stopped successfully")
     return True
 
 
 def _get_shutdown_command(platform_id):
     """Get the appropriate shutdown command for the platform.
-    
+
     Args:
         platform_id: Platform identifier from detect_platform()
-        
+
     Returns:
         str or None: Shutdown command, or None if unsupported
     """
     if platform_id in ('linux', 'wsl', 'darwin') or platform_id.startswith('linux'):
         return 'sudo shutdown -h now'
-    elif platform_id == 'windows':
+    if platform_id == 'windows':
         # /s = shutdown, /f = force close apps, /t 0 = immediate
         return 'shutdown /s /f /t 0'
     return None
@@ -185,16 +185,16 @@ def _get_shutdown_command(platform_id):
 
 def _get_restart_command(platform_id):
     """Get the appropriate restart command for the platform.
-    
+
     Args:
         platform_id: Platform identifier from detect_platform()
-        
+
     Returns:
         str or None: Restart command, or None if unsupported
     """
     if platform_id in ('linux', 'wsl', 'darwin') or platform_id.startswith('linux'):
         return 'shutdown -r now'
-    elif platform_id == 'windows':
+    if platform_id == 'windows':
         # /r = restart, /f = force close apps, /t 0 = immediate
         return 'shutdown /r /f /t 0'
     return None
@@ -216,20 +216,20 @@ def index():
 @limiter.limit("5 per minute")
 def shutdown():
     """Shutdown the host system.
-    
+
     Note: For production use, consider adding docker compose down before
     shutdown to gracefully stop containers. This is omitted here to keep
     the function focused and testable.
     """
     platform_id = detect_platform()
     app.logger.info("Shutdown requested for platform: %s", platform_id)
-    
+
     # Get and execute shutdown command
     command = _get_shutdown_command(platform_id)
     if not command:
         app.logger.error("Unsupported platform: %s", platform_id)
         return jsonify({"message": f"Unsupported platform: {platform_id}"}), 400
-    
+
     stdout, returncode = run_command(command)
     if returncode != 0:
         app.logger.error("Shutdown failed: %s", stdout.strip())
@@ -237,7 +237,7 @@ def shutdown():
             "message": "Failed to shut down",
             "error": stdout.strip()
         }), 500
-    
+
     app.logger.info("Shutdown command issued successfully")
     return jsonify({
         "message": "Shutdown command issued",
@@ -250,20 +250,20 @@ def shutdown():
 @limiter.limit("5 per minute")
 def restart():
     """Restart the host system.
-    
+
     Note: For production use, consider adding docker compose down before
     restart to gracefully stop containers. This is omitted here to keep
     the function focused and testable.
     """
     platform_id = detect_platform()
     app.logger.info("Restart requested for platform: %s", platform_id)
-    
+
     # Get and execute restart command
     command = _get_restart_command(platform_id)
     if not command:
         app.logger.error("Unsupported platform: %s", platform_id)
         return jsonify({"message": f"Unsupported platform: {platform_id}"}), 400
-    
+
     stdout, returncode = run_command(command)
     if returncode != 0:
         app.logger.error("Restart failed: %s", stdout.strip())
@@ -271,7 +271,7 @@ def restart():
             "message": "Failed to restart",
             "error": stdout.strip()
         }), 500
-    
+
     app.logger.info("Restart command issued successfully")
     return jsonify({
         "message": "Restart command issued",

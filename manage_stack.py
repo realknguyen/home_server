@@ -20,6 +20,7 @@ DOTENV_PATH = PROJECT_ROOT / ".env"
 
 
 def load_project_metadata() -> Dict[str, Any]:
+    """Parse project metadata from project.toml if available."""
     project_file = PROJECT_ROOT / "project.toml"
     if not project_file.exists():
         return {}
@@ -46,6 +47,7 @@ USE_VIRTUALENV: bool = MANAGE_STACK_SETTINGS.get("use_virtualenv", True)
 
 
 def resolve_virtualenv_path() -> Path:
+    """Compute the absolute path to the configured virtual environment."""
     configured_path = MANAGE_STACK_SETTINGS.get("virtualenv_path", ".venv")
     path_obj = Path(configured_path).expanduser()
     if not path_obj.is_absolute():
@@ -59,7 +61,7 @@ VIRTUALENV_PATH = resolve_virtualenv_path()
 def run_with_output(command: list[str], description: str) -> None:
     """Execute a command while streaming its stdout/stderr."""
     print(f"\n==> {description}")
-    result = subprocess.run(command, cwd=PROJECT_ROOT)
+    result = subprocess.run(command, cwd=PROJECT_ROOT, check=False)
     if result.returncode != 0:
         raise RuntimeError(
             f"Command {' '.join(command)} failed with exit code {result.returncode}"
@@ -75,6 +77,7 @@ def _virtualenv_python_candidates() -> list[Path]:
 
 
 def locate_virtualenv_python() -> Path:
+    """Return the first python executable found inside the virtualenv."""
     for candidate in _virtualenv_python_candidates():
         if candidate.exists():
             return candidate
@@ -83,6 +86,7 @@ def locate_virtualenv_python() -> Path:
 
 
 def create_virtualenv() -> None:
+    """Create the managed virtual environment if it does not exist."""
     base_python = sys.executable or shutil.which("python3") or "python3"
     VIRTUALENV_PATH.parent.mkdir(parents=True, exist_ok=True)
     run_with_output(
@@ -92,6 +96,7 @@ def create_virtualenv() -> None:
 
 
 def ensure_virtualenv_python() -> Path:
+    """Ensure the configured virtual environment exists and return python path."""
     python_path = locate_virtualenv_python()
     if python_path.exists():
         return python_path
@@ -105,6 +110,7 @@ def ensure_virtualenv_python() -> Path:
 
 
 def resolve_python_interpreter() -> str:
+    """Return the interpreter path (virtualenv or system python)."""
     if not USE_VIRTUALENV:
         return sys.executable or shutil.which("python3") or "python3"
     return str(ensure_virtualenv_python())
@@ -118,6 +124,7 @@ def compose_is_running(include_gpu_override: bool) -> bool:
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         raise RuntimeError(
@@ -127,6 +134,7 @@ def compose_is_running(include_gpu_override: bool) -> bool:
 
 
 def ensure_flask_entrypoint() -> None:
+    """Verify the Glance Flask entrypoint exists."""
     if not FLASK_ENTRYPOINT.exists():
         raise FileNotFoundError(
             f"Expected Flask entry point at {FLASK_ENTRYPOINT} but it does not exist."
@@ -134,6 +142,7 @@ def ensure_flask_entrypoint() -> None:
 
 
 def start_flask_server(python_executable: str) -> None:
+    """Launch the Flask host control API under the given interpreter."""
     ensure_flask_entrypoint()
     run_with_output(
         [python_executable, str(FLASK_ENTRYPOINT)],
@@ -175,6 +184,7 @@ def collect_project_dependencies() -> list[str]:
 
 
 def install_python_dependencies(python_executable: str, skip: bool = False) -> None:
+    """Install project dependencies defined in project.toml."""
     if skip:
         print("Skipping dependency installation (--skip-deps flag).")
         return
@@ -196,6 +206,7 @@ def ensure_pip_installed(python_executable: str) -> None:
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
+        check=False,
     )
     if check.returncode == 0:
         return
@@ -216,6 +227,7 @@ def ensure_pip_installed(python_executable: str) -> None:
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
+        check=False,
     )
     if post_check.returncode != 0:
         raise RuntimeError(
@@ -231,6 +243,7 @@ def gpu_runtime_available() -> bool:
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode == 0:
         payload = (result.stdout or "").strip()
@@ -241,6 +254,7 @@ def gpu_runtime_available() -> bool:
 
 
 def build_compose_command(extra_args: list[str], include_gpu_override: bool) -> list[str]:
+    """Construct the docker compose CLI invocation with optional GPU overrides."""
     files = [BASE_COMPOSE_FILE]
     if include_gpu_override and GPU_COMPOSE_FILE.exists():
         files.append(GPU_COMPOSE_FILE)
@@ -252,6 +266,7 @@ def build_compose_command(extra_args: list[str], include_gpu_override: bool) -> 
 
 
 def should_use_gpu_override() -> bool:
+    """Determine whether to include the GPU docker-compose override file."""
     if not GPU_COMPOSE_FILE.exists():
         return False
     if gpu_runtime_available():
@@ -262,6 +277,7 @@ def should_use_gpu_override() -> bool:
 
 
 def main() -> None:
+    """CLI entry point."""
     parser = argparse.ArgumentParser(
         description="Manage the Docker stack and Flask API server."
     )
@@ -286,7 +302,7 @@ def main() -> None:
     if args.clean_shutdown:
         print("Performing clean shutdown (stopping all containers)...")
         use_gpu_override = should_use_gpu_override()
-        
+
         # Try stopping with GPU file first
         if GPU_COMPOSE_FILE.exists():
             try:
@@ -296,7 +312,7 @@ def main() -> None:
                 )
             except RuntimeError as err:
                 print(f"Warning: Failed to stop with GPU compose file: {err}")
-        
+
         # Then stop with base file only
         try:
             run_with_output(
@@ -305,7 +321,7 @@ def main() -> None:
             )
         except RuntimeError as err:
             print(f"Warning: Failed to stop with base compose file: {err}")
-        
+
         print("Clean shutdown complete. Exiting.")
         sys.exit(0)
 
@@ -326,7 +342,7 @@ def main() -> None:
 
     try:
         ensure_env_file()
-        
+
         if running and not args.restart_only:
             run_with_output(
                 build_compose_command(["down"], use_gpu_override),
