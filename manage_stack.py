@@ -278,10 +278,38 @@ def main() -> None:
     parser.add_argument(
         "--clean-shutdown",
         action="store_true",
-        help="Force stop containers with both base and GPU compose files to avoid port conflicts",
+        help="Stop all containers (with all compose file combinations) and exit without restarting",
     )
     args = parser.parse_args()
 
+    # Clean shutdown mode: just stop everything and exit
+    if args.clean_shutdown:
+        print("Performing clean shutdown (stopping all containers)...")
+        use_gpu_override = should_use_gpu_override()
+        
+        # Try stopping with GPU file first
+        if GPU_COMPOSE_FILE.exists():
+            try:
+                run_with_output(
+                    build_compose_command(["down"], include_gpu_override=True),
+                    "Stopping Docker Compose stack (with GPU overrides)",
+                )
+            except RuntimeError as err:
+                print(f"Warning: Failed to stop with GPU compose file: {err}")
+        
+        # Then stop with base file only
+        try:
+            run_with_output(
+                build_compose_command(["down"], include_gpu_override=False),
+                "Stopping Docker Compose stack (base only)",
+            )
+        except RuntimeError as err:
+            print(f"Warning: Failed to stop with base compose file: {err}")
+        
+        print("Clean shutdown complete. Exiting.")
+        sys.exit(0)
+
+    # Normal startup flow
     python_executable = resolve_python_interpreter()
     use_gpu_override = should_use_gpu_override()
     try:
@@ -299,27 +327,7 @@ def main() -> None:
     try:
         ensure_env_file()
         
-        # Clean shutdown: stop containers with both compose file combinations
-        if args.clean_shutdown:
-            print("Performing clean shutdown (stopping with all compose file combinations)...")
-            # Try stopping with GPU file first
-            if GPU_COMPOSE_FILE.exists():
-                try:
-                    run_with_output(
-                        build_compose_command(["down"], include_gpu_override=True),
-                        "Stopping Docker Compose stack (with GPU overrides)",
-                    )
-                except RuntimeError:
-                    print("Warning: Failed to stop with GPU compose file, continuing...")
-            # Then stop with base file only
-            try:
-                run_with_output(
-                    build_compose_command(["down"], include_gpu_override=False),
-                    "Stopping Docker Compose stack (base only)",
-                )
-            except RuntimeError:
-                print("Warning: Failed to stop with base compose file, continuing...")
-        elif running and not args.restart_only:
+        if running and not args.restart_only:
             run_with_output(
                 build_compose_command(["down"], use_gpu_override),
                 "Stopping running Docker Compose stack",

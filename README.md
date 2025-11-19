@@ -260,6 +260,46 @@ CI is not bundled, but the commands above are what the project expects before pu
 
 ---
 
+## Changelog
+
+### Recent Updates
+
+#### Port Configuration
+
+- Changed Glance from port 8080 to 8090 (avoids conflict with Windows AgentService.exe)
+- Updated all references in docker-compose.yml and documentation
+
+#### CORS & LAN Control
+
+- Added `flask-cors` dependency for cross-origin requests
+- Configured Private Network Access headers for Chrome compatibility
+- Changed API URLs from `localhost` to `falconnet.local` for remote control from mobile/laptop
+
+#### Windows Support
+
+- Created `start_services.ps1` PowerShell script for Windows Task Scheduler
+- Redirects Flask output to `flask_service.log` for monitoring
+- Auto-installs dependencies and starts Docker + Flask
+
+#### Enhanced manage_stack.py
+
+- `--skip-deps`: Skip dependency installation for faster restarts
+- `--restart-only`: Preserve container state (skip `docker compose down`)
+- `--clean-shutdown`: Stop all containers and exit without restarting
+- `--upgrade`: Always upgrade pip dependencies to latest versions
+
+#### Verified Working
+
+- ✅ All 36 tests passing
+- ✅ Port 8090 for Glance (HTTP)
+- ✅ Port 5001 for Flask API (HTTP)
+- ✅ CORS enabled for cross-origin requests
+- ✅ Windows shutdown/restart commands correct
+- ✅ LAN hostname (`falconnet.local`) configured
+- ✅ GPU detection and docker-compose.gpu.yml working
+
+---
+
 ## Contributing
 
 1. Fork and branch from `main`.

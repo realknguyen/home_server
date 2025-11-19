@@ -13,8 +13,41 @@ from flask_limiter.util import get_remote_address
 from glance.custom_api_extension.flask_utils import detect_platform, run_command
 from flask_cors import CORS
 import logging
+from logging.handlers import RotatingFileHandler
+import os
+import re
 
-logging.basicConfig(level=logging.INFO)
+# Custom formatter to strip ANSI color codes from file logs
+class NoColorFormatter(logging.Formatter):
+    """Remove ANSI color codes from log messages"""
+    ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    
+    def format(self, record):
+        message = super().format(record)
+        return self.ANSI_ESCAPE.sub('', message)
+
+# Configure logging to file
+log_dir = os.path.join(os.path.dirname(__file__), '..', '..')
+log_file = os.path.join(log_dir, 'host_flask.log')
+file_handler = RotatingFileHandler(log_file, maxBytes=10485760, backupCount=3)  # 10MB per file, keep 3 backups
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(NoColorFormatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+))
+
+# Also log to console (with colors)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+))
+
+# Configure root logger
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[file_handler, console_handler]
+)
+
 app = Flask(__name__)
 
 # Enable CORS with Private Network Access support for Chrome
