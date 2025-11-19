@@ -1,5 +1,5 @@
 - name: Startpage
-#  width: slim
+  #  width: slim
   # hide-desktop-navigation: true
   #center-vertically: true
   head-widgets:
@@ -26,11 +26,11 @@
   columns:
     - size: small
       widgets:
-      - type: server-stats
-        servers:
-          - type: local
-            name: Services
-      - type: docker-containers
+        - type: server-stats
+          servers:
+            - type: local
+              name: Services
+        - type: docker-containers
     - size: full
       widgets:
         - type: custom-api
@@ -38,13 +38,13 @@
           frameless: true
           template: |
             <div class="power-controls">
-              <form class="power-controls__form" method="post" action="http://localhost:5001/shutdown" target="power-controls-target">
+              <form class="power-controls__form" method="post" action="http://falconnet.local:5001/shutdown" target="power-controls-target">
                 <input type="hidden" name="token" value="${MY_SECRET_TOKEN}">
                 <button class="power-controls__button power-controls__button--shutdown" type="submit" onclick="return confirm('Send shutdown command?');">
                   <img class="power-controls__icon" src="/assets/icon-shutdown.svg" alt="Shutdown">
                 </button>
               </form>
-              <form class="power-controls__form" method="post" action="http://localhost:5001/restart" target="power-controls-target">
+              <form class="power-controls__form" method="post" action="http://falconnet.local:5001/restart" target="power-controls-target">
                 <input type="hidden" name="token" value="${MY_SECRET_TOKEN}">
                 <button class="power-controls__button power-controls__button--restart" type="submit" onclick="return confirm('Send restart command?');">
                   <img class="power-controls__icon" src="/assets/icon-restart.svg" alt="Restart">
