@@ -76,8 +76,9 @@ local_llm/
    python -m venv .venv
    source .venv/bin/activate
    pip install -r glance/custom_api_extension/requirements.txt
-   # or, if your tooling reads `project.toml` (or a copy named `pyproject.toml`):
-   pip install -e .[dev]
+   # or, if your tooling expects a pyproject:
+   cp project.toml pyproject.toml  # or mv
+   pip install -e '.[dev]'         # quote extras so zsh won't glob it
    ```
 
 4. **Launch the container stack**
@@ -163,7 +164,7 @@ CI is not bundled, but the commands above are what the project expects before pu
 ## Contributing
 
 1. Fork and branch from `main`.
-2. Run `pip install -e .[dev]` and `pytest` before committing.
+2. Run `pip install -e ."[dev]"` and `pytest` before committing.
 3. Follow the conventions in `tests/` when adding Flask endpoints: write fixtures, mock external systems, and assert command invocations explicitly.
 4. Open a pull request with a summary of Docker/service changes plus any dashboard screenshots if UI changes are involved.
 

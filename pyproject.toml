@@ -1,0 +1,38 @@
+[project]
+name = "local-llm-home-stack"
+version = "0.2.0"
+description = "Self-hosted LLM home lab stack with Glance dashboard automation and a tested Flask control API."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Khoi Nguyen", email = "khoinet9690@gmail.com" }
+]
+keywords = ["ollama", "glance", "open-webui", "searxng", "flask"]
+requires-python = ">=3.11,<4.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "Flask>=3.0,<4.0",
+    "flask-limiter>=3.5,<4.0",
+    "distro>=1.8,<2.0",
+    "python-dotenv>=1.0,<2.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9.0",
+    "black>=24.8,<25.0",
+    "ruff>=0.6,<0.7"
+]
+
+[tool.poetry]
+packages = [
+    { include = "glance" }
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
