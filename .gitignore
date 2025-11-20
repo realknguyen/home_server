@@ -5,6 +5,7 @@
 .env.local
 .env.*.backup
 !.env.example
+.rooignore
 
 # ---------------------------------------------------------------------------
 # Python build artifacts
