@@ -22,8 +22,8 @@ services:
       - OLLAMA_PORT=11434
 
       # Performance Optimizations for RTX 5080
-      - OLLAMA_NUM_PARALLEL=4 # Handle 4 parallel requests (adjust based on VRAM)
-      - OLLAMA_MAX_LOADED_MODELS=2 # Keep 2 models in VRAM simultaneously
+#      - OLLAMA_NUM_PARALLEL=4 # Handle 4 parallel requests (adjust based on VRAM)
+      - OLLAMA_MAX_LOADED_MODELS=1 # Keep 2 models in VRAM simultaneously
       - OLLAMA_KEEP_ALIVE=30m # Keep models loaded for 30 minutes
 
       # Context Window (RTX 5080 has plenty of VRAM)
