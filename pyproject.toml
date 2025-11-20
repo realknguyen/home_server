@@ -46,6 +46,9 @@ auto_install_dependencies = true
 use_virtualenv = true
 virtualenv_path = ".venv"
 
+[tool.pytest.ini_options]
+addopts = "--cache-clear"
+
 [tool.pylint.main]
 fail-under = 9.0
 
