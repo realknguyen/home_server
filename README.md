@@ -127,7 +127,35 @@ Endpoints:
 
 ## Windows Autostart
 
-See `docs/windows-autostart.md` for scheduling `start_services.ps1`. It starts Docker Compose, installs Python deps from `pyproject.toml`, runs the Flask API, and logs to `flask_service.log`.
+Bring the stack up before anyone logs in by running `start_services.ps1` from Task Scheduler. The script installs Python deps, starts Docker Compose, launches the Flask API, and writes to `flask_service.log`.
+
+**Prereqs**
+- Windows 10/11 with admin rights
+- Docker Desktop set to start on boot
+- Python + repo deps already installed
+
+**Task Scheduler recipe** (full screenshots live in `docs/windows-autostart.md`)
+1. Create a new task (not basic) named `Home Server Auto Start`, select "Run whether user is logged on or not" and "Run with highest privileges", and target Windows 10/11.
+2. Add a trigger: `At startup`, delayed 30s so Docker is ready, leave it enabled.
+3. Add an action: `Start a program` → `powershell.exe` with arguments `-ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\path\to\home_server\start_services.ps1"` and `Start in` pointed at the repo directory.
+4. Conditions: uncheck "Start only if on AC power" and optionally enable "Wake the computer".
+5. Settings: allow on-demand runs, run ASAP if missed, do **not** stop after a duration, and set "If already running" to "Do not start a new instance".
+6. Save, enter your password, right-click → Run to verify, then inspect `flask_service.log` for success.
+
+**Verify shutdown/restart permissions**
+```bash
+curl -X POST http://YOUR_SERVER_IP:5001/shutdown \
+  -H "Authorization: Bearer YOUR_SECRET_TOKEN"
+```
+If you see "Access Denied", re-check highest-privileges + "Run whether user is logged on or not".
+
+**Firewall**
+```powershell
+New-NetFirewallRule -DisplayName "Flask API" -Direction Inbound -LocalPort 5001 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "Glance Dashboard" -Direction Inbound -LocalPort 8090 -Protocol TCP -Action Allow
+```
+
+Advanced users can convert the Flask API into a Windows Service via NSSM; the exact commands remain in `docs/windows-autostart.md`.
 
 ---
 
