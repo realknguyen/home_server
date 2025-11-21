@@ -232,6 +232,11 @@ def shutdown():
     if not command:
         app.logger.error("Unsupported platform: %s", platform_id)
         return jsonify({"message": f"Unsupported platform: {platform_id}"}), 400
+    
+    if _stop_docker_compose():
+        app.logger.info("Docker Compose stack stopped successfully")
+    else:
+        app.logger.error("Proceeding with shutdown despite Docker Compose stop failure")
 
     stdout, returncode = run_command(command)
     if returncode != 0:
@@ -260,6 +265,11 @@ def restart():
     if not command:
         app.logger.error("Unsupported platform: %s", platform_id)
         return jsonify({"message": f"Unsupported platform: {platform_id}"}), 400
+
+    if _stop_docker_compose():
+        app.logger.info("Docker Compose stack stopped successfully")
+    else:
+        app.logger.error("Proceeding with shutdown despite Docker Compose stop failure")
 
     stdout, returncode = run_command(command)
     if returncode != 0:
